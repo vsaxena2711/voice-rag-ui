@@ -1,0 +1,33 @@
+:root { --bg:#0b1020; --panel:#131939; --muted:#9aa3b2; --text:#e5e9f0; --accent:#6aa3ff; --danger:#ff5c5c; }
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; background: var(--bg); color: var(--text); }
+a { color: var(--accent); text-decoration: none; }
+.btn { padding: .55rem .9rem; border: 1px solid #2a2f4e; background: #1a2040; color: var(--text); border-radius: .6rem; cursor: pointer; }
+.btn:hover { filter: brightness(1.1); }
+.btn.primary { background: var(--accent); border-color: transparent; color: #0b1020; font-weight: 700; }
+.btn.danger { background: var(--danger); border-color: transparent; color: white; font-weight: 700; }
+.input { flex: 1; padding: .6rem .8rem; border: 1px solid #2a2f4e; background:#0f1430; color: var(--text); border-radius: .6rem; }
+.card { display: flex; flex-direction: column; background: var(--panel); border: 1px solid #2a2f4e; border-radius: 1rem; min-height: 20rem; }
+.card-header { padding: .9rem 1rem; border-bottom: 1px solid #2a2f4e; font-weight:700; }
+.card-body { padding: 1rem; }
+.card-footer { display: flex; gap: .5rem; padding: .75rem; border-top: 1px solid #2a2f4e; }
+.scroll { max-height: 70vh; overflow: auto; }
+.muted { color: var(--muted); }
+.center { text-align:center; }
+.bubble { margin: .6rem 0; padding: .8rem; border-radius: .8rem; background: #0f1430; border: 1px solid #2a2f4e; }
+.bubble.user { background: #0d1230; border-color: #2a2f4e; }
+.bubble-role { font-size: .72rem; color: var(--muted); margin-bottom: .25rem; text-transform: uppercase; letter-spacing: .06em; }
+.sources { margin-top: .6rem; padding-top: .6rem; border-top: 1px dashed #2a2f4e; }
+.sources-title { color: var(--muted); font-size: .8rem; margin-bottom: .4rem; }
+.source-card { padding: .5rem; border: 1px solid #2a2f4e; border-radius: .6rem; margin-bottom: .5rem; background:#0b1130; }
+.source-card .file { font-weight: 600; }
+.source-card .highlight em { background: rgba(255,255,0,.35); padding: 0 .15rem; border-radius: .2rem; }
+.source-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .4rem; }
+.stack { display: grid; gap: .8rem; }
+.context-card { padding: .6rem; border: 1px solid #2a2f4e; border-radius: .6rem; background: #0b1130; }
+.context-card .row { display: flex; align-items: center; justify-content: space-between; margin-bottom: .4rem; }
+.context-card .file { font-weight: 700; }
+.context-card .highlight em { background: rgba(255,255,0,.35); padding: 0 .15rem; border-radius: .2rem; }
+.context-card .pdf { width: 100%; height: 360px; border: 0; border-radius: .4rem; background:#000; }
+footer { opacity: .6; }
