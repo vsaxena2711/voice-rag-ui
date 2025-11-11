@@ -7,6 +7,7 @@ const SR = (window.SpeechRecognition || window.webkitSpeechRecognition);
 function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
   const imgRef = useRef(null);
   const [dims, setDims] = useState({ naturalW: 0, naturalH: 0, clientW: 0, clientH: 0 });
+  const [zoomOn, setZoomOn] = useState(true); // default ON so it’s readable
 
   useEffect(() => {
     const img = imgRef.current;
@@ -16,7 +17,7 @@ function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
         naturalW: img.naturalWidth || 0,
         naturalH: img.naturalHeight || 0,
         clientW: img.clientWidth || 0,
-        clientH: img.clientHeight || 0,
+        clientH: img.clientHeight || 0
       });
     if (img.complete) apply();
     img.addEventListener("load", apply);
@@ -27,41 +28,67 @@ function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
     };
   }, [src]);
 
+  const box = boxes?.[0]; // we zoom to the first/union box if present
   const scaleX = dims.naturalW ? dims.clientW / dims.naturalW : 1;
   const scaleY = dims.naturalH ? dims.clientH / dims.naturalH : 1;
 
+  // Compute CSS transform to zoom so the box roughly fills the width
+  let transform = "none", transformOrigin = "center center";
+  if (zoomOn && box && dims.clientW && dims.clientH) {
+    const boxWpx = box.w * scaleX;
+    const boxHpx = box.h * scaleY;
+    const zoom = Math.min(4, Math.max(1, Math.min(dims.clientW / boxWpx, dims.clientH / boxHpx)));
+    const cx = (box.x + box.w / 2) * scaleX;
+    const cy = (box.y + box.h / 2) * scaleY;
+    transform = `translate(calc(50% - ${cx}px), calc(50% - ${cy}px)) scale(${zoom})`;
+    transformOrigin = "top left";
+  }
+
   return (
     <div style={{ position: "relative" }}>
-      <img
-        ref={imgRef}
-        src={src}
-        alt="Page preview"
-        style={{
-          display: "block",
-          width: "100%",
-          maxHeight,
-          objectFit: "contain",
-          borderRadius: ".4rem",
-          border: "1px solid #2a2f4e",
-          background: "#000",
-        }}
-      />
-      {boxes?.map((b, i) => (
-        <div
-          key={i}
+      <div style={{
+        position: "relative",
+        overflow: "hidden",
+        width: "100%",
+        maxHeight,
+        borderRadius: ".4rem",
+        border: "1px solid #2a2f4e",
+        background: "#000",
+      }}>
+        <img
+          ref={imgRef}
+          src={src}
+          alt="Page preview"
           style={{
+            display: "block",
+            width: "100%",
+            transform,
+            transformOrigin,
+            transition: "transform 200ms ease",
+          }}
+        />
+        {/* draw overlay boxes on top (only when not zoomed, or keep if you like) */}
+        {!zoomOn && boxes?.map((b, i) => (
+          <div key={i} style={{
             position: "absolute",
             left: b.x * scaleX,
             top: b.y * scaleY,
             width: b.w * scaleX,
             height: b.h * scaleY,
-            border: "2px solid rgba(255, 225, 0, .9)",
-            background: "rgba(255, 225, 0, .25)",
+            border: "2px solid rgba(255,225,0,.9)",
+            background: "rgba(255,225,0,.25)",
             borderRadius: ".2rem",
             pointerEvents: "none",
-          }}
-        />
-      ))}
+          }} />
+        ))}
+      </div>
+
+      {/* small control row */}
+      <div style={{ display: "flex", gap: ".5rem", marginTop: ".35rem" }}>
+        <button className="btn" onClick={() => setZoomOn(z => !z)}>
+          {zoomOn ? "🔎 Fit Page" : "🔎 Zoom to Highlight"}
+        </button>
+      </div>
     </div>
   );
 }
