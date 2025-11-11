@@ -3,6 +3,68 @@ import { useEffect, useMemo, useRef, useState } from "react";
 const API_BASE = import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "";
 const SR = (window.SpeechRecognition || window.webkitSpeechRecognition);
 
+// NEW: draw highlight boxes over the page preview
+function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
+  const imgRef = useRef(null);
+  const [dims, setDims] = useState({ naturalW: 0, naturalH: 0, clientW: 0, clientH: 0 });
+
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    const apply = () => setDims({
+      naturalW: img.naturalWidth || 0,
+      naturalH: img.naturalHeight || 0,
+      clientW: img.clientWidth || 0,
+      clientH: img.clientHeight || 0
+    });
+    if (img.complete) apply();
+    img.addEventListener("load", apply);
+    window.addEventListener("resize", apply);
+    return () => {
+      img.removeEventListener("load", apply);
+      window.removeEventListener("resize", apply);
+    };
+  }, [src]);
+
+  const scaleX = dims.naturalW ? (dims.clientW / dims.naturalW) : 1;
+  const scaleY = dims.naturalH ? (dims.clientH / dims.naturalH) : 1;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <img
+        ref={imgRef}
+        src={src}
+        alt="Page preview"
+        style={{
+          display: "block",
+          width: "100%",
+          maxHeight,
+          objectFit: "contain",
+          borderRadius: ".4rem",
+          border: "1px solid #2a2f4e",
+          background: "#000",
+        }}
+      />
+      {boxes?.map((b, i) => (
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            left: b.x * scaleX,
+            top: b.y * scaleY,
+            width: b.w * scaleX,
+            height: b.h * scaleY,
+            border: "2px solid rgba(255, 225, 0, .9)",
+            background: "rgba(255, 225, 0, .25)",
+            borderRadius: ".2rem",
+            pointerEvents: "none",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const [q, setQ] = useState("");
   const [stream, setStream] = useState([
@@ -40,7 +102,6 @@ export default function App() {
     try {
       if (!speakEnabled) return;
       if (!text) return;
-      // Stop any ongoing utterances
       if (synthRef.current?.speaking) synthRef.current.cancel();
       const u = new SpeechSynthesisUtterance(text);
       u.rate = 1;
@@ -50,9 +111,7 @@ export default function App() {
   };
 
   const stopSpeaking = () => {
-    try {
-      synthRef.current?.cancel();
-    } catch (_) {}
+    try { synthRef.current?.cancel(); } catch (_) {}
   };
 
   const toggleMic = () => {
@@ -61,7 +120,7 @@ export default function App() {
       recRef.current.stop();
       setSttActive(false);
     } else {
-      stopSpeaking(); // avoid TTS overlapping with mic
+      stopSpeaking();
       setSttActive(true);
       recRef.current.start();
     }
@@ -129,25 +188,13 @@ export default function App() {
           />
         )}
 
-        {/* Page 1 preview if present */}
+        {/* Page preview with overlay */}
         {top.page_image_url && (
           <div style={{ marginTop: ".6rem" }}>
             <div className="muted" style={{ fontSize: ".8rem", marginBottom: ".25rem" }}>
               Page {top.page_number || 1}
             </div>
-            <img
-              src={top.page_image_url}
-              alt="Page preview"
-              style={{
-                display: "block",
-                width: "100%",
-                maxHeight: 420,
-                objectFit: "contain",
-                borderRadius: ".4rem",
-                border: "1px solid #2a2f4e",
-                background: "#000",
-              }}
-            />
+            <PageOverlay src={top.page_image_url} boxes={top.boxes || []} maxHeight={420} />
           </div>
         )}
       </div>
@@ -247,19 +294,7 @@ export default function App() {
 
                       {s.page_image_url && (
                         <div style={{ marginTop: ".5rem" }}>
-                          <img
-                            src={s.page_image_url}
-                            alt="Page preview"
-                            style={{
-                              display: "block",
-                              width: "100%",
-                              maxHeight: 240,
-                              objectFit: "contain",
-                              borderRadius: ".4rem",
-                              border: "1px solid #2a2f4e",
-                              background: "#000",
-                            }}
-                          />
+                          <PageOverlay src={s.page_image_url} boxes={s.boxes || []} maxHeight={240} />
                         </div>
                       )}
                     </div>
