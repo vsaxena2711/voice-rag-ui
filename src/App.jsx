@@ -7,12 +7,12 @@ const SR = (window.SpeechRecognition || window.webkitSpeechRecognition);
 function PageOverlay({ src, boxes = [], maxHeight = 420, boxesAreNormalized = true }) {
   const imgRef = useRef(null);
   const [dims, setDims] = useState({ naturalW: 0, naturalH: 0, clientW: 0, clientH: 0, ready: false });
-  const [zoomOn, setZoomOn] = useState(Boolean(boxes?.length));
+  // Start in "Fit Page", user can click to zoom. Reset to Fit Page when image changes.
+  const [zoomOn, setZoomOn] = useState(false);
+  useEffect(() => { setZoomOn(false); }, [src]);
 
   const hasBox = Array.isArray(boxes) && boxes.length > 0;
   const firstBox = hasBox ? boxes[0] : null;
-
-  useEffect(() => setZoomOn(Boolean(boxes?.length)), [boxes?.length]);
 
   useEffect(() => {
     const img = imgRef.current;
