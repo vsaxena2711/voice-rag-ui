@@ -1,198 +1,117 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE;
-
-function useSTT() {
-  const [listening, setListening] = useState(false);
-  const [lastResult, setLastResult] = useState("");
-  const recRef = useRef(null);
-
-  useEffect(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    const rec = new SR();
-    rec.interimResults = true;
-    rec.continuous = false;
-    rec.lang = "en-US";
-    rec.onresult = (e) => {
-      const text = Array.from(e.results)
-        .map(r => r[0].transcript)
-        .join(" ");
-      setLastResult(text);
-    };
-    rec.onend = () => setListening(false);
-    rec.onerror = () => setListening(false);
-    recRef.current = rec;
-  }, []);
-
-  const start = () => {
-    if (!recRef.current) return;
-    setListening(true);
-    recRef.current.start();
-  };
-
-  const stop = () => {
-    if (!recRef.current) return;
-    recRef.current.stop();
-    setListening(false);
-  };
-
-  return { listening, lastResult, start, stop, supported: !!(window.SpeechRecognition || window.webkitSpeechRecognition) };
-}
-
-function speak(text) {
-  if (!("speechSynthesis" in window)) return;
-  const u = new SpeechSynthesisUtterance(text);
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(u);
-}
+const API_BASE = import.meta.env.VITE_API_BASE || "";
 
 export default function App() {
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([]); // {role:'user'|'assistant', text:string, sources?:[]}
+  const [q, setQ] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(false);
-  const { listening, lastResult, start, stop, supported } = useSTT();
+  const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => {
-    if (listening && lastResult) setInput(lastResult);
-  }, [lastResult, listening]);
-
-  async function ask(q) {
+  async function ask() {
     setLoading(true);
+    setErrorMsg("");
+    setAnswer("");
+    setSources([]);
+
     try {
       const res = await fetch(`${API_BASE}/api/ask`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ q })
+        body: JSON.stringify({ q }),
       });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(`HTTP ${res.status}: ${t}`);
+      }
       const data = await res.json();
-      const answer = typeof data.answer === "string" ? data.answer : JSON.stringify(data);
-      setMessages(m => [...m, { role: "user", text: q }, { role: "assistant", text: answer, sources: data.sources || [] }]);
-      speak(answer);
+      setAnswer(data.answer || "");
+      setSources(Array.isArray(data.sources) ? data.sources : []);
     } catch (e) {
-      setMessages(m => [...m, { role: "assistant", text: "Oops—request failed." }]);
+      setErrorMsg(e.message || "Request failed");
     } finally {
       setLoading(false);
     }
   }
 
-  function onSubmit(e) {
-    e.preventDefault();
-    const q = input.trim();
-    if (!q) return;
-    ask(q);
-    setInput("");
-  }
-
   return (
-    <div className="min-h-screen flex flex-col gap-4 p-4 max-w-6xl mx-auto font-sans">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Voice RAG Agent (POC)</h1>
-        <div className="flex items-center gap-2">
-          {supported ? (
-            listening ? (
-              <button className="btn danger" onClick={stop}>■ Stop</button>
-            ) : (
-              <button className="btn" onClick={start}>🎙️ Speak</button>
-            )
-          ) : (
-            <span className="text-sm opacity-70">Mic (Web Speech) not supported</span>
-          )}
-        </div>
-      </header>
+    <div style={{ height: "100%", display: "grid", gridTemplateRows: "1fr auto", gap: "12px", padding: "16px" }}>
+      {/* Main panel */}
+      <div className="card scroll">
+        <div className="card-header">Voice RAG Agent (POC)</div>
+        <div className="card-body">
+          {/* Chat bubbles */}
+          {!!answer && (
+            <div className="bubble">
+              <div className="bubble-role">Agent</div>
+              <div style={{ whiteSpace: "pre-wrap" }}>{answer}</div>
 
-      <main className="grid md:grid-cols-2 gap-4">
-        {/* Chat column */}
-        <section className="card">
-          <div className="card-header">Chat</div>
-          <div className="card-body scroll">
-            {messages.length === 0 && (
-              <div className="muted">Ask me anything from your docs. Try: “Where do I find troubleshooting steps?”</div>
-            )}
-            {messages.map((m, i) => (
-              <div key={i} className={`bubble ${m.role}`}>
-                <div className="bubble-role">{m.role === "user" ? "You" : "Agent"}</div>
-                <div className="bubble-text">{m.text}</div>
-                {m.sources?.length > 0 && (
-                  <div className="sources">
-                    <div className="sources-title">Sources</div>
-                    {m.sources.map((s, j) => (
-                      <SourceCard key={j} source={s} />
-                    ))}
-                  </div>
-                )}
+              {/* Sources */}
+              <div className="sources">
+                <div className="sources-title">Sources</div>
+                <div>
+                  {sources.map((s) => (
+                    <div key={s.id} className="source-card">
+                      <div className="source-head">
+                        <div className="file">{s.file || "document"}</div>
+                        {s.sas_url && (
+                          <a className="btn" href={s.sas_url} target="_blank" rel="noreferrer">
+                            Open PDF
+                          </a>
+                        )}
+                      </div>
+
+                      {/* a) Render highlight HTML (instead of plain text) */}
+                      <div
+                        className="highlight"
+                        dangerouslySetInnerHTML={{ __html: s.highlight_html || "" }}
+                      />
+
+                      {/* b) Show the first page preview when available */}
+                      {s.page_image_url && (
+                        <div className="page-preview">
+                          <img
+                            src={s.page_image_url}
+                            alt={`Page ${s.page_number || 1}`}
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-            {loading && <div className="muted">Searching & reasoning…</div>}
-          </div>
-          <form className="card-footer" onSubmit={onSubmit}>
-            <input
-              className="input"
-              placeholder="Type your question…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-            />
-            <button className="btn primary" type="submit" disabled={loading}>Ask</button>
-          </form>
-        </section>
+            </div>
+          )}
 
-        {/* Context column */}
-        <section className="card">
-          <div className="card-header">Context (latest answer)</div>
-          <div className="card-body scroll">
-            <ContextPane lastAssistantMsg={messages.filter(m => m.role === "assistant").slice(-1)[0]} />
-          </div>
-        </section>
-      </main>
-
-      <footer className="center muted text-sm">
-        API: {API_BASE}
-      </footer>
-    </div>
-  );
-}
-
-function SourceCard({ source }) {
-  // source: {file, highlight_html, sas_url}
-  return (
-    <div className="source-card">
-      <div className="source-head">
-        <div className="file">{source.file}</div>
-        {source.sas_url && (
-          <a href={source.sas_url} target="_blank" rel="noreferrer" className="link">Open PDF</a>
-        )}
-      </div>
-      {source.highlight_html && (
-        <div
-          className="highlight"
-          dangerouslySetInnerHTML={{ __html: source.highlight_html }}
-        />
-      )}
-    </div>
-  );
-}
-
-function ContextPane({ lastAssistantMsg }) {
-  if (!lastAssistantMsg?.sources?.length) {
-    return <div className="muted">Answer context will appear here with highlights and PDF links.</div>;
-  }
-  return (
-    <div className="stack">
-      {lastAssistantMsg.sources.map((s, i) => (
-        <div key={i} className="context-card">
-          <div className="row">
-            <div className="file">{s.file}</div>
-            {s.sas_url && <a className="link" target="_blank" rel="noreferrer" href={s.sas_url}>Open PDF</a>}
-          </div>
-          <div
-            className="highlight"
-            dangerouslySetInnerHTML={{ __html: s.highlight_html || "" }}
-          />
-          {s.sas_url && (
-            <iframe className="pdf" src={s.sas_url} title={`pdf-${i}`} />
+          {/* Error */}
+          {errorMsg && (
+            <div className="bubble user" style={{ borderColor: "#a33" }}>
+              <div className="bubble-role">Error</div>
+              <div style={{ color: "#ff9b9b" }}>{errorMsg}</div>
+            </div>
           )}
         </div>
-      ))}
+      </div>
+
+      {/* Footer input */}
+      <div className="card-footer">
+        <input
+          className="input"
+          placeholder="Type your question…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !loading && ask()}
+        />
+        <button className={`btn primary`} onClick={ask} disabled={loading || !q.trim()}>
+          {loading ? "Asking..." : "Ask"}
+        </button>
+      </div>
+
+      <footer className="center muted">
+        API: {API_BASE || "(set VITE_API_BASE in .env)"}
+      </footer>
     </div>
   );
 }

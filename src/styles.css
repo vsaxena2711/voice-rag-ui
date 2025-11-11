@@ -22,7 +22,10 @@ a { color: var(--accent); text-decoration: none; }
 .sources-title { color: var(--muted); font-size: .8rem; margin-bottom: .4rem; }
 .source-card { padding: .5rem; border: 1px solid #2a2f4e; border-radius: .6rem; margin-bottom: .5rem; background:#0b1130; }
 .source-card .file { font-weight: 600; }
+
+/* highlight HTML from Azure Search (<em> tags) */
 .source-card .highlight em { background: rgba(255,255,0,.35); padding: 0 .15rem; border-radius: .2rem; }
+
 .source-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .4rem; }
 .stack { display: grid; gap: .8rem; }
 .context-card { padding: .6rem; border: 1px solid #2a2f4e; border-radius: .6rem; background: #0b1130; }
@@ -31,3 +34,13 @@ a { color: var(--accent); text-decoration: none; }
 .context-card .highlight em { background: rgba(255,255,0,.35); padding: 0 .15rem; border-radius: .2rem; }
 .context-card .pdf { width: 100%; height: 360px; border: 0; border-radius: .4rem; background:#000; }
 footer { opacity: .6; }
+
+/* --- NEW: page preview image styling --- */
+.page-preview img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid #2a2f4e;
+  border-radius: .4rem;
+  margin-top: .5rem;
+  display: block;
+}
