@@ -11,12 +11,13 @@ function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
   useEffect(() => {
     const img = imgRef.current;
     if (!img) return;
-    const apply = () => setDims({
-      naturalW: img.naturalWidth || 0,
-      naturalH: img.naturalHeight || 0,
-      clientW: img.clientWidth || 0,
-      clientH: img.clientHeight || 0
-    });
+    const apply = () =>
+      setDims({
+        naturalW: img.naturalWidth || 0,
+        naturalH: img.naturalHeight || 0,
+        clientW: img.clientWidth || 0,
+        clientH: img.clientHeight || 0,
+      });
     if (img.complete) apply();
     img.addEventListener("load", apply);
     window.addEventListener("resize", apply);
@@ -26,8 +27,8 @@ function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
     };
   }, [src]);
 
-  const scaleX = dims.naturalW ? (dims.clientW / dims.naturalW) : 1;
-  const scaleY = dims.naturalH ? (dims.clientH / dims.naturalH) : 1;
+  const scaleX = dims.naturalW ? dims.clientW / dims.naturalW : 1;
+  const scaleY = dims.naturalH ? dims.clientH / dims.naturalH : 1;
 
   return (
     <div style={{ position: "relative" }}>
@@ -67,9 +68,7 @@ function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
 
 export default function App() {
   const [q, setQ] = useState("");
-  const [stream, setStream] = useState([
-    { role: "system", text: "Voice RAG Agent (POC)" },
-  ]);
+  const [stream, setStream] = useState([{ role: "system", text: "Voice RAG Agent (POC)" }]);
   const [loading, setLoading] = useState(false);
   const [sources, setSources] = useState([]);
   const [lastAnswer, setLastAnswer] = useState("");
@@ -111,7 +110,9 @@ export default function App() {
   };
 
   const stopSpeaking = () => {
-    try { synthRef.current?.cancel(); } catch (_) {}
+    try {
+      synthRef.current?.cancel();
+    } catch (_) {}
   };
 
   const toggleMic = () => {
@@ -182,10 +183,7 @@ export default function App() {
 
         {/* Render highlight HTML with spans so <em> gets styled */}
         {top.highlight_html && (
-          <div
-            className="highlight"
-            dangerouslySetInnerHTML={{ __html: top.highlight_html }}
-          />
+          <div className="highlight" dangerouslySetInnerHTML={{ __html: top.highlight_html }} />
         )}
 
         {/* Page preview with overlay */}
@@ -194,7 +192,8 @@ export default function App() {
             <div className="muted" style={{ fontSize: ".8rem", marginBottom: ".25rem" }}>
               Page {top.page_number || 1}
             </div>
-            <PageOverlay src={top.page_image_url} boxes={top.boxes || []} maxHeight={420} />
+            {/* Taller here */}
+            <PageOverlay src={top.page_image_url} boxes={top.boxes || []} maxHeight={560} />
           </div>
         )}
       </div>
@@ -273,12 +272,7 @@ export default function App() {
                         <div>
                           {s.page_number && <span className="muted">Page {s.page_number}</span>}
                           {s.sas_url && (
-                            <a
-                              style={{ marginLeft: ".6rem" }}
-                              href={s.sas_url}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
+                            <a style={{ marginLeft: ".6rem" }} href={s.sas_url} target="_blank" rel="noreferrer">
                               Open PDF
                             </a>
                           )}
@@ -286,15 +280,13 @@ export default function App() {
                       </div>
 
                       {s.highlight_html && (
-                        <div
-                          className="highlight"
-                          dangerouslySetInnerHTML={{ __html: s.highlight_html }}
-                        />
+                        <div className="highlight" dangerouslySetInnerHTML={{ __html: s.highlight_html }} />
                       )}
 
                       {s.page_image_url && (
                         <div style={{ marginTop: ".5rem" }}>
-                          <PageOverlay src={s.page_image_url} boxes={s.boxes || []} maxHeight={240} />
+                          {/* Taller here */}
+                          <PageOverlay src={s.page_image_url} boxes={s.boxes || []} maxHeight={360} />
                         </div>
                       )}
                     </div>
@@ -305,9 +297,7 @@ export default function App() {
           </div>
         </div>
 
-        <footer className="muted">
-          API: {API_BASE || "not set"}
-        </footer>
+        <footer className="muted">API: {API_BASE || "not set"}</footer>
       </div>
     </div>
   );
