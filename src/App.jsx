@@ -3,22 +3,31 @@ import { useEffect, useMemo, useRef, useState } from "react";
 const API_BASE = import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "";
 const SR = (window.SpeechRecognition || window.webkitSpeechRecognition);
 
-// NEW: draw highlight boxes over the page preview
+// NEW: draw highlight boxes over the page preview, with safe auto-zoom
 function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
   const imgRef = useRef(null);
-  const [dims, setDims] = useState({ naturalW: 0, naturalH: 0, clientW: 0, clientH: 0 });
-  const [zoomOn, setZoomOn] = useState(true); // default ON so it’s readable
+  const [dims, setDims] = useState({ naturalW: 0, naturalH: 0, clientW: 0, clientH: 0, ready: false });
+  const [zoomOn, setZoomOn] = useState(Boolean(boxes?.length)); // zoom only if a box exists
+
+  const hasBox = Array.isArray(boxes) && boxes.length > 0;
+  const firstBox = hasBox ? boxes[0] : null;
+
+  useEffect(() => {
+    // if boxes change, default zoom to ON only when we have a box
+    setZoomOn(Boolean(boxes?.length));
+  }, [boxes?.length]);
 
   useEffect(() => {
     const img = imgRef.current;
     if (!img) return;
-    const apply = () =>
-      setDims({
-        naturalW: img.naturalWidth || 0,
-        naturalH: img.naturalHeight || 0,
-        clientW: img.clientWidth || 0,
-        clientH: img.clientHeight || 0
-      });
+    const apply = () => {
+      const naturalW = img.naturalWidth || 0;
+      const naturalH = img.naturalHeight || 0;
+      const clientW = img.clientWidth || 0;
+      const clientH = img.clientHeight || 0;
+      const ready = naturalW > 0 && naturalH > 0 && clientW > 0 && clientH > 0;
+      setDims({ naturalW, naturalH, clientW, clientH, ready });
+    };
     if (img.complete) apply();
     img.addEventListener("load", apply);
     window.addEventListener("resize", apply);
@@ -28,20 +37,22 @@ function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
     };
   }, [src]);
 
-  const box = boxes?.[0]; // we zoom to the first/union box if present
-  const scaleX = dims.naturalW ? dims.clientW / dims.naturalW : 1;
-  const scaleY = dims.naturalH ? dims.clientH / dims.naturalH : 1;
+  const scaleX = dims.naturalW ? (dims.clientW / dims.naturalW) : 1;
+  const scaleY = dims.naturalH ? (dims.clientH / dims.naturalH) : 1;
 
-  // Compute CSS transform to zoom so the box roughly fills the width
-  let transform = "none", transformOrigin = "center center";
-  if (zoomOn && box && dims.clientW && dims.clientH) {
-    const boxWpx = box.w * scaleX;
-    const boxHpx = box.h * scaleY;
-    const zoom = Math.min(4, Math.max(1, Math.min(dims.clientW / boxWpx, dims.clientH / boxHpx)));
-    const cx = (box.x + box.w / 2) * scaleX;
-    const cy = (box.y + box.h / 2) * scaleY;
+  // Compute zoom transform only when we are ready and have a box
+  let transform = "none", transformOrigin = "top left";
+  if (dims.ready && zoomOn && firstBox) {
+    const boxWpx = firstBox.w * scaleX;
+    const boxHpx = firstBox.h * scaleY;
+    const zoom = Math.min(4, Math.max(1, Math.min(
+      dims.clientW / Math.max(1, boxWpx),
+      dims.clientH / Math.max(1, boxHpx)
+    )));
+    const cx = (firstBox.x + firstBox.w / 2) * scaleX;
+    const cy = (firstBox.y + firstBox.h / 2) * scaleY;
+    // shift image so the box center sits in the center of the frame, then scale
     transform = `translate(calc(50% - ${cx}px), calc(50% - ${cy}px)) scale(${zoom})`;
-    transformOrigin = "top left";
   }
 
   return (
@@ -67,8 +78,8 @@ function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
             transition: "transform 200ms ease",
           }}
         />
-        {/* draw overlay boxes on top (only when not zoomed, or keep if you like) */}
-        {!zoomOn && boxes?.map((b, i) => (
+        {/* Show overlay boxes when not zoomed (or keep both if you prefer) */}
+        {!zoomOn && hasBox && boxes.map((b, i) => (
           <div key={i} style={{
             position: "absolute",
             left: b.x * scaleX,
@@ -83,15 +94,21 @@ function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
         ))}
       </div>
 
-      {/* small control row */}
       <div style={{ display: "flex", gap: ".5rem", marginTop: ".35rem" }}>
-        <button className="btn" onClick={() => setZoomOn(z => !z)}>
+        <button
+          className="btn"
+          onClick={() => setZoomOn(z => !z)}
+          title={hasBox ? "Toggle zoom to highlighted lines" : "No highlight found for this page"}
+          disabled={!hasBox}
+          style={{ opacity: hasBox ? 1 : 0.6, cursor: hasBox ? "pointer" : "not-allowed" }}
+        >
           {zoomOn ? "🔎 Fit Page" : "🔎 Zoom to Highlight"}
         </button>
       </div>
     </div>
   );
 }
+
 
 export default function App() {
   const [q, setQ] = useState("");
