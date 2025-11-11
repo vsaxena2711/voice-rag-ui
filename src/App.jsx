@@ -4,18 +4,15 @@ const API_BASE = import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "";
 const SR = (window.SpeechRecognition || window.webkitSpeechRecognition);
 
 // NEW: draw highlight boxes over the page preview, with safe auto-zoom
-function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
+function PageOverlay({ src, boxes = [], maxHeight = 420, boxesAreNormalized = true }) {
   const imgRef = useRef(null);
   const [dims, setDims] = useState({ naturalW: 0, naturalH: 0, clientW: 0, clientH: 0, ready: false });
-  const [zoomOn, setZoomOn] = useState(Boolean(boxes?.length)); // zoom only if a box exists
+  const [zoomOn, setZoomOn] = useState(Boolean(boxes?.length));
 
   const hasBox = Array.isArray(boxes) && boxes.length > 0;
   const firstBox = hasBox ? boxes[0] : null;
 
-  useEffect(() => {
-    // if boxes change, default zoom to ON only when we have a box
-    setZoomOn(Boolean(boxes?.length));
-  }, [boxes?.length]);
+  useEffect(() => setZoomOn(Boolean(boxes?.length)), [boxes?.length]);
 
   useEffect(() => {
     const img = imgRef.current;
@@ -37,21 +34,32 @@ function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
     };
   }, [src]);
 
-  const scaleX = dims.naturalW ? (dims.clientW / dims.naturalW) : 1;
-  const scaleY = dims.naturalH ? (dims.clientH / dims.naturalH) : 1;
+  // Convert a box to client-px coordinates
+  const toPx = (b) => {
+    if (boxesAreNormalized) {
+      return {
+        x: b.x * dims.clientW,
+        y: b.y * dims.clientH,
+        w: b.w * dims.clientW,
+        h: b.h * dims.clientH,
+      };
+    }
+    // pixel boxes path (fallback)
+    const scaleX = dims.naturalW ? (dims.clientW / dims.naturalW) : 1;
+    const scaleY = dims.naturalH ? (dims.clientH / dims.naturalH) : 1;
+    return { x: b.x * scaleX, y: b.y * scaleY, w: b.w * scaleX, h: b.h * scaleY };
+  };
 
-  // Compute zoom transform only when we are ready and have a box
+  // Compute transform only when image is ready and we have a box
   let transform = "none", transformOrigin = "top left";
   if (dims.ready && zoomOn && firstBox) {
-    const boxWpx = firstBox.w * scaleX;
-    const boxHpx = firstBox.h * scaleY;
+    const bpx = toPx(firstBox);
     const zoom = Math.min(4, Math.max(1, Math.min(
-      dims.clientW / Math.max(1, boxWpx),
-      dims.clientH / Math.max(1, boxHpx)
+      dims.clientW / Math.max(1, bpx.w),
+      dims.clientH / Math.max(1, bpx.h)
     )));
-    const cx = (firstBox.x + firstBox.w / 2) * scaleX;
-    const cy = (firstBox.y + firstBox.h / 2) * scaleY;
-    // shift image so the box center sits in the center of the frame, then scale
+    const cx = bpx.x + bpx.w / 2;
+    const cy = bpx.y + bpx.h / 2;
     transform = `translate(calc(50% - ${cx}px), calc(50% - ${cy}px)) scale(${zoom})`;
   }
 
@@ -78,20 +86,19 @@ function PageOverlay({ src, boxes = [], maxHeight = 420 }) {
             transition: "transform 200ms ease",
           }}
         />
-        {/* Show overlay boxes when not zoomed (or keep both if you prefer) */}
-        {!zoomOn && hasBox && boxes.map((b, i) => (
-          <div key={i} style={{
-            position: "absolute",
-            left: b.x * scaleX,
-            top: b.y * scaleY,
-            width: b.w * scaleX,
-            height: b.h * scaleY,
-            border: "2px solid rgba(255,225,0,.9)",
-            background: "rgba(255,225,0,.25)",
-            borderRadius: ".2rem",
-            pointerEvents: "none",
-          }} />
-        ))}
+        {!zoomOn && hasBox && boxes.map((b, i) => {
+          const pb = toPx(b);
+          return (
+            <div key={i} style={{
+              position: "absolute",
+              left: pb.x, top: pb.y, width: pb.w, height: pb.h,
+              border: "2px solid rgba(255,225,0,.9)",
+              background: "rgba(255,225,0,.25)",
+              borderRadius: ".2rem",
+              pointerEvents: "none",
+            }} />
+          );
+        })}
       </div>
 
       <div style={{ display: "flex", gap: ".5rem", marginTop: ".35rem" }}>
@@ -237,7 +244,7 @@ export default function App() {
               Page {top.page_number || 1}
             </div>
             {/* Taller here */}
-            <PageOverlay src={top.page_image_url} boxes={top.boxes || []} maxHeight={560} />
+            <PageOverlay src={top.page_image_url} boxes={top.boxes || []} boxesAreNormalized={top.boxes_norm === true} maxHeight={420} />
           </div>
         )}
       </div>
@@ -330,7 +337,7 @@ export default function App() {
                       {s.page_image_url && (
                         <div style={{ marginTop: ".5rem" }}>
                           {/* Taller here */}
-                          <PageOverlay src={s.page_image_url} boxes={s.boxes || []} maxHeight={360} />
+                          <PageOverlay src={s.page_image_url} boxes={s.boxes || []} boxesAreNormalized={s.boxes_norm === true} maxHeight={240} />
                         </div>
                       )}
                     </div>
