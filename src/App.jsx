@@ -3,6 +3,22 @@ import { useEffect, useMemo, useRef, useState } from "react";
 const API_BASE = import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "";
 const SR = (window.SpeechRecognition || window.webkitSpeechRecognition);
 
+// --- PHASE 9: lightweight conversation id (persisted in localStorage) ---
+const CONVO_KEY = "voice_rag_convo_id";
+function ensureConvoId() {
+  try {
+    let id = localStorage.getItem(CONVO_KEY);
+    if (!id) {
+      id = (window.crypto?.randomUUID?.() || `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`);
+      localStorage.setItem(CONVO_KEY, id);
+    }
+    return id;
+  } catch {
+    // fallback if storage blocked
+    return (window.crypto?.randomUUID?.() || `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`);
+  }
+}
+
 // NEW: draw highlight boxes over the page preview, with safe auto-zoom
 function PageOverlay({ src, boxes = [], maxHeight = 420, boxesAreNormalized = true }) {
   const imgRef = useRef(null);
@@ -126,6 +142,14 @@ export default function App() {
   const [speakEnabled, setSpeakEnabled] = useState(true);
   const [sttActive, setSttActive] = useState(false);
 
+  // PHASE 9: keep a single conversation id across page loads
+  const [convoId, setConvoId] = useState(() => ensureConvoId());
+  useEffect(() => {
+    // in case storage was blocked initially, retry once on mount
+    const id = ensureConvoId();
+    setConvoId(id);
+  }, []);
+
   const recRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
 
@@ -178,12 +202,13 @@ export default function App() {
     }
   };
 
+  // PHASE 9: include convo_id in body (no endpoint changes)
   const apiAsk = async (question) => {
     const url = `${API_BASE}/api/ask`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ q: question }),
+      body: JSON.stringify({ q: question, convo_id: convoId }),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
