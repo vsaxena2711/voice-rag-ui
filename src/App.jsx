@@ -135,7 +135,7 @@ function PageOverlay({ src, boxes = [], maxHeight = 420, boxesAreNormalized = tr
 
 export default function App() {
   const [q, setQ] = useState("");
-  const [stream, setStream] = useState([{ role: "system", text: "Voice RAG Agent (POC)" }]);
+  const [stream, setStream] = useState([{ role: "system", text: "Vaibhav's Voice RAG Agent (POC)" }]);
   const [loading, setLoading] = useState(false);
   const [sources, setSources] = useState([]);
   const [lastAnswer, setLastAnswer] = useState("");
